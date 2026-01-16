@@ -8,7 +8,7 @@ import { supabase } from '../utils/supabase';
 import { logout } from '../store/authSlice';
 
 const Navbar: React.FC = () => {
-    const { user } = useSelector((state: RootState) => state.auth);
+    const { user, role } = useSelector((state: RootState) => state.auth);
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -36,6 +36,11 @@ const Navbar: React.FC = () => {
                         <Search className="w-4 h-4" />
                         Search
                     </Link>
+                    {role === 'admin' && (
+                        <div className="px-3 py-1 bg-purple-500/20 text-purple-400 text-[10px] font-bold uppercase tracking-wider rounded border border-purple-500/30">
+                            Admin
+                        </div>
+                    )}
                     {user ? (
                         <div className="flex items-center gap-4">
                             <div className="flex items-center gap-2 text-sm font-medium text-white/70">
@@ -86,6 +91,13 @@ const Navbar: React.FC = () => {
                                 <Search className="w-5 h-5 text-blue-400" />
                                 <span className="font-medium">Browse Hotels</span>
                             </Link>
+
+                            {role === 'admin' && (
+                                <div className="mx-3 px-3 py-2 bg-purple-500/20 text-purple-400 text-xs font-bold uppercase tracking-widest rounded-xl border border-purple-500/30 flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
+                                    Admin Access
+                                </div>
+                            )}
 
                             {user ? (
                                 <>

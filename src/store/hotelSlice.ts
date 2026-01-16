@@ -6,8 +6,8 @@ interface HotelState {
   selectedHotels: Hotel[];
   searchParams: {
     location: string;
-    checkIn: string;
-    checkOut: string;
+    checkIn: Date
+    checkOut: Date;
     guests: number;
   };
 }
@@ -16,8 +16,8 @@ const initialState: HotelState = {
   selectedHotels: JSON.parse(localStorage.getItem('selectedHotels') || '[]'),
   searchParams: {
     location: '',
-    checkIn: '',
-    checkOut: '',
+    checkIn: new Date(),
+    checkOut: new Date(),
     guests: 1,
   },
 };

@@ -6,12 +6,16 @@ import { type RootState } from '../store';
 import { useSearchHotelsQuery } from '../store/api/hotelApi';
 import { toggleHotelSelection, clearSelectedHotels } from '../store/hotelSlice';
 import Layout from '../components/Layout';
-import HotelCard from '../components/HotelCard';
 import ComparisonModal from '../components/ComparisonModal';
+import ResultsSkeleton from '../components/search/ResultsSkeleton';
+import ResultsGrid from '../components/search/ResultsGrid';
+import EmptyResults from '../components/search/EmptyResults';
+import AdminFilters from '../components/search/AdminFilters';
 
 const SearchResults: React.FC = () => {
     const dispatch = useDispatch();
     const { searchParams, selectedHotels } = useSelector((state: RootState) => state.hotels);
+    const { role } = useSelector((state: RootState) => state.auth);
     const { data: hotels, isLoading } = useSearchHotelsQuery(searchParams);
 
     const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
@@ -42,7 +46,7 @@ const SearchResults: React.FC = () => {
     return (
         <Layout>
             <div className="flex flex-col lg:flex-row gap-8">
-                {/* Mobile Filter Toggle */}
+                {/* Mobile Filter Toggle omitted for brevity, same as before */}
                 <div className="lg:hidden flex gap-4">
                     <button
                         onClick={() => setShowMobileFilters(!showMobileFilters)}
@@ -129,13 +133,15 @@ const SearchResults: React.FC = () => {
                                             ))}
                                         </div>
                                     </div>
+
+                                    {role === 'admin' && <AdminFilters />}
                                 </div>
                             </div>
                         </motion.aside>
                     )}
                 </AnimatePresence>
 
-                {/* Results Grid */}
+                {/* Results Grid Content */}
                 <div className="lg:w-3/4">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                         <div>
@@ -167,29 +173,16 @@ const SearchResults: React.FC = () => {
                     </div>
 
                     {isLoading ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                            {[1, 2, 3, 4].map(i => (
-                                <div key={i} className="h-80 bg-white/5 animate-pulse rounded-3xl"></div>
-                            ))}
-                        </div>
+                        <ResultsSkeleton />
                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                            {filteredHotels.map(hotel => (
-                                <HotelCard
-                                    key={hotel.id}
-                                    hotel={hotel}
-                                    isSelected={selectedHotels.some(h => h.id === hotel.id)}
-                                    onSelect={(h) => dispatch(toggleHotelSelection(h))}
-                                />
-                            ))}
-                        </div>
+                        <ResultsGrid
+                            hotels={filteredHotels}
+                            selectedHotels={selectedHotels}
+                            onToggleSelection={(h) => dispatch(toggleHotelSelection(h))}
+                        />
                     )}
 
-                    {!isLoading && filteredHotels.length === 0 && (
-                        <div className="text-center py-20 bg-white/5 rounded-3xl border border-white/10 border-dashed">
-                            <p className="text-white/40 px-4">No hotels found matching your criteria.</p>
-                        </div>
-                    )}
+                    {!isLoading && filteredHotels.length === 0 && <EmptyResults />}
                 </div>
             </div>
 

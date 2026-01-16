@@ -1,27 +1,43 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { Search, MapPin, Calendar, Users, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { setSearchParams } from '../store/hotelSlice';
 import Layout from '../components/Layout';
+import * as yup from "yup"
+import { useForm } from "react-hook-form"
+import { yupResolver } from '@hookform/resolvers/yup';
+
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+
+
+const searchSchema = yup.object({
+    location: yup.string().required("Location is required"),
+    checkIn: yup.date().required("Check-in date is required").min(today, "Check-in date must be today or later"),
+    checkOut: yup.date().required("Check-out date is required").min(today, "Check-out date must be today or later").min(yup.ref("checkIn"), "Check-out date must be after check-in date"),
+    guests: yup.number().required("Number of guests is required").min(1, "Number of guests must be at least 1"),
+})
+
+
+type SearchForm = yup.InferType<typeof searchSchema>
 
 const Home: React.FC = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
 
-    const [formData, setFormData] = useState({
-        location: '',
-        checkIn: '',
-        checkOut: '',
-        guests: 1,
-    });
+   
 
-    const handleSearch = (e: React.FormEvent) => {
-        e.preventDefault();
-        dispatch(setSearchParams(formData));
-        navigate('/search');
-    };
+    const {register , handleSubmit ,  formState: { errors },  } = useForm<SearchForm>({
+        resolver: yupResolver(searchSchema),
+        defaultValues : {guests : 1}
+    })
+
+    const onSubmit = (data: SearchForm) => {
+    dispatch(setSearchParams(data));
+    navigate('/search');
+  };
 
     return (
         <Layout>
@@ -46,7 +62,7 @@ const Home: React.FC = () => {
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3, duration: 0.6 }}
-                    onSubmit={handleSearch}
+                    onSubmit={handleSubmit(onSubmit)}
                     className="w-full max-w-5xl bg-white/10 backdrop-blur-xl p-4 sm:p-6 rounded-3xl border border-white/20 shadow-2xl flex flex-col lg:flex-row gap-4"
                 >
                     <div className="flex-grow grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -55,9 +71,8 @@ const Home: React.FC = () => {
                             <input
                                 type="text"
                                 placeholder="Where to?"
-                                className="w-full h-14 pl-12 pr-4 bg-black/20 border border-white/10 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                                value={formData.location}
-                                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                className={`w-full h-14 pl-12 pr-4 bg-black/20 border ${errors.location ? 'border-red-500' : 'border-white/10'} rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all`}
+                                {...register("location")}
                                 required
                             />
                         </div>
@@ -65,26 +80,23 @@ const Home: React.FC = () => {
                             <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-400" />
                             <input
                                 type="date"
-                                className="w-full h-14 pl-12 pr-4 bg-black/20 border border-white/10 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-white/70"
-                                value={formData.checkIn}
-                                onChange={(e) => setFormData({ ...formData, checkIn: e.target.value })}
+                                className={`w-full h-14 pl-12 pr-4 bg-black/20 border ${errors.checkIn ? 'border-red-500' : 'border-white/10'} rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-white/70`}
+                                {...register("checkIn")}
                             />
                         </div>
                         <div className="relative">
                             <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-400" />
                             <input
                                 type="date"
-                                className="w-full h-14 pl-12 pr-4 bg-black/20 border border-white/10 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-white/70"
-                                value={formData.checkOut}
-                                onChange={(e) => setFormData({ ...formData, checkOut: e.target.value })}
+                                className={`w-full h-14 pl-12 pr-4 bg-black/20 border ${errors.checkOut ? 'border-red-500' : 'border-white/10'} rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-white/70`}
+                                {...register("checkOut")}
                             />
                         </div>
                         <div className="relative shadow-sm hover:shadow-md transition-shadow">
                             <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-400" />
                             <select
-                                className="w-full h-14 pl-12 pr-4 bg-black/20 border border-white/10 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none text-white/70"
-                                value={formData.guests}
-                                onChange={(e) => setFormData({ ...formData, guests: parseInt(e.target.value) })}
+                                className={`w-full h-14 pl-12 pr-4 bg-black/20 border ${errors.guests ? 'border-red-500' : 'border-white/10'} rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none text-white/70`}
+                                {...register("guests")}
                             >
                                 {[1, 2, 3, 4, 5, 6].map(n => (
                                     <option key={n} value={n} className="bg-[#1a1a1a]">{n} {n === 1 ? 'Guest' : 'Guests'}</option>

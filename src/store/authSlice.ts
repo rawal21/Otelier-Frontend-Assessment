@@ -1,10 +1,11 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import type { User } from '@supabase/supabase-js';
+import type { User, Session } from '@supabase/supabase-js';
 
 interface AuthState {
   user: User | null;
-  session: any | null;
+  session: Session | null;
+  role: 'admin' | 'user';
   loading: boolean;
   error: string | null;
 }
@@ -12,6 +13,7 @@ interface AuthState {
 const initialState: AuthState = {
   user: null,
   session: null,
+  role: 'user',
   loading: true,
   error: null,
 };
@@ -22,10 +24,15 @@ const authSlice = createSlice({
   reducers: {
     setUser: (state, action: PayloadAction<User | null>) => {
       state.user = action.payload;
+      state.role = action.payload?.email?.endsWith('@luxstay.com') ? 'admin' : 'user';
       state.loading = false;
     },
-    setSession: (state, action: PayloadAction<any | null>) => {
+    setSession: (state, action: PayloadAction<Session | null>) => {
       state.session = action.payload;
+      if (action.payload) {
+        state.user = action.payload.user;
+        state.role = action.payload.user.email?.endsWith('@luxstay.com') ? 'admin' : 'user';
+      }
       state.loading = false;
     },
     setLoading: (state, action: PayloadAction<boolean>) => {

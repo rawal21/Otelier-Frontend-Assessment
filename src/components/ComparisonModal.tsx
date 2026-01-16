@@ -124,7 +124,7 @@ const ComparisonModal: React.FC<ComparisonModalProps> = ({ isOpen, onClose }) =>
                                             {chartData.map((_entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={COLORS[(index + 1) % COLORS.length]} fillOpacity={0.8} />
                                             ))}
-                                        </Bar>–
+                                        </Bar>
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>

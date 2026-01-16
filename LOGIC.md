@@ -40,6 +40,30 @@ This is a wrapper component. It checks the Redux state:
 
 ---
 
+## 🏨 Hotel Search Optimization (Hotelbeds API)
+
+The hotel search integration is built to be resilient, performant, and worldwide-ready.
+
+### 1. Authentication & Signature Generation
+Hotelbeds requires a dynamic SHA256 signature (`X-Signature`) generated from your API Key, Secret, and the current Unix timestamp. We handle this client-side using `crypto-js` while proxying requests through Vite to avoid CORS.
+
+### 2. Multi-Layer Destination Resolution
+Hotelbeds uses specific 3-letter destination codes (e.g., `PAR` for Paris). To ensure users can search for any city name, we implemented a 4-layer resolution strategy:
+- **Smart Dictionary**: Instant mappings for major global hubs (London, Dubai, Tokyo, etc.).
+- **Local Cache**: Destination codes are stored in `localStorage` once resolved.
+- **Content API Search**: If not found in the dictionary, we search the Hotelbeds Content API for matching destination names.
+- **Failsafe Fallback**: As a last resort, we use the first 3 letters of the search term (the most common format for their codes).
+
+### 3. Payload Formatting & Normalization
+- **Strict Date Formatting**: All dates are normalized to `YYYY-MM-DD` using a `formatDate` helper to prevent 400 Bad Request errors.
+- **Data Quality**: We request up to 50 results per search and apply a `minCategory: 4` filter to ensure high-quality luxury results.
+- **Image Handling**: Because the API "light" responses often lack multiple high-res images, we use a curated `premiumImages` pool that intelligently rotates luxury assets, ensuring a premium visual experience.
+
+### 4. Resilience (Mock Fallback)
+If API keys are missing, rate limits are hit, or a network error occurs, the system automatically falls back to an enhanced `getMockHotels` generator. This ensures the app is always functional and presentable for demos.
+
+---
+
 ## 🖼️ UI & Motion: Tailwind + Framer Motion
 
 **Why Tailwind CSS?**
@@ -62,3 +86,13 @@ This is a wrapper component. It checks the Redux state:
 - **Error Boundaries**: Protects the app from crashing on unexpected API errors.
 - **Code Splitting**: Uses `React.lazy` for heavy components (Charts, Search) to improve initial load time.
 - **Validation**: `React Hook Form` + `Yup` ensures clean, error-free user input for search and authentication.
+
+## 🐳 Containerization & Production Serving
+
+To ensure "it works on my machine" everywhere, we use Docker:
+
+- **Multi-Stage Build**: We use a `node:alpine` image to build the optimized production assets and then transfer them to a lightweight `nginx:alpine` image for serving.
+- **Environment Baking**: Since Vite requires environment variables at build time, the Docker pipeline passes these through `docker-compose` as `build-args`.
+- **Nginx Reverse Proxy**: In production, we use a custom `nginx.conf` to serve the SPA and proxy API requests to Hotelbeds, bypassing the need for a local node proxy.
+
+---
