@@ -9,6 +9,8 @@ interface HotelState {
     checkIn: Date
     checkOut: Date;
     guests: number;
+    offset: number;
+    limit: number;
   };
 }
 
@@ -19,6 +21,8 @@ const initialState: HotelState = {
     checkIn: new Date(),
     checkOut: new Date(),
     guests: 1,
+    offset: 0,
+    limit: 20,
   },
 };
 

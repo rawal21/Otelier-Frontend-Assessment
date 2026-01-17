@@ -17,6 +17,8 @@ export interface SearchParams {
   checkIn: Date;
   checkOut: Date;
   guests: number;
+  offset?: number;
+  limit?: number;
 }
 
 const HOTELBEDS_BASE_URL = '/hotelbeds-api';
@@ -53,7 +55,6 @@ const getDestinationCode = async (
   const normalized = location.toLowerCase().trim();
   if (!normalized) return 'PAR';
 
-  // 1. Check Smart Dictionary first for instant high-quality matches
   const cityMap: Record<string, string> = {
     'london': 'LON',
     'paris': 'PAR',
@@ -79,30 +80,23 @@ const getDestinationCode = async (
     const cached = localStorage.getItem(cacheKey);
     if (cached) return cached;
 
-    // 2. Fetch from Content API (limited to 200)
     const res = await fetch(
       `${HOTELBEDS_BASE_URL}/hotel-content-api/1.0/locations/destinations?language=ENG&from=1&to=200`,
       { headers }
     );
 
     const data = await res.json();
-
     if (data?.destinations) {
       const match = data.destinations.find((d: any) =>
         d.name.toLowerCase().includes(normalized) || 
         normalized.includes(d.name.toLowerCase())
       );
-
       if (match) {
         localStorage.setItem(cacheKey, match.code);
         return match.code;
       }
     }
-
-    // 3. Last Resort: First 3 letters (Standard Hotelbeds Format)
-    // Most major hubs use the first 3 letters of the city name
-    const fallbackCode = normalized.substring(0, 3).toUpperCase();
-    return fallbackCode;
+    return normalized.substring(0, 3).toUpperCase();
   } catch (err) {
     console.error('Destination lookup failed:', err);
     return normalized.substring(0, 3).toUpperCase();
@@ -116,25 +110,25 @@ export const hotelApi = createApi({
     searchHotels: builder.query<Hotel[], SearchParams>({
       queryFn: async (params) => {
         const headers = getHotelbedsHeaders() as any;
+        const offset = params.offset || 0;
+        const limit = params.limit || 20;
 
         if (!headers) {
-          return { data: getMockHotels(params.location) };
+          return { data: getMockHotels(params.location, offset, limit) };
         }
 
         try {
-          const today = new Date().toISOString().split('T')[0];
-
           const formatDate = (date: any) => {
-            if (!date) return today;
-            const d = new Date(date);
+            const d = new Date(date || Date.now());
             return d.toISOString().split('T')[0];
           };
 
           const checkIn = formatDate(params.checkIn);
           const checkOut = formatDate(params.checkOut);
-
-          // ✅ Dynamic destination code
           const destCode = await getDestinationCode(params.location, headers);
+
+          const from = offset + 1;
+          const to = offset + limit;
 
           const response = await fetch(
             `${HOTELBEDS_BASE_URL}/hotel-api/1.0/hotels`,
@@ -143,24 +137,25 @@ export const hotelApi = createApi({
               headers,
               body: JSON.stringify({
                 stay: { checkIn, checkOut },
-                occupancies: [
-                  {
-                    rooms: 1,
-                    adults: params.guests || 2,
-                    children: 0,
-                  },
-                ],
+                occupancies: [{ rooms: 1, adults: params.guests || 2, children: 0 }],
                 destination: { code: destCode },
-                filter: { minCategory: 4 },
-                from: 1,
-                to: 50,
+                filter: { minCategory: 2 },
+                from,
+                to,
               }),
             }
           );
 
           const data = await response.json();
 
-          if (!data?.hotels?.hotels) {
+          // ⚠️ Handle explicit API errors (like Quota Exceeded) with Mock Data
+          if (data?.error) {
+            console.warn('Hotelbeds API Error:', data.error);
+            return { data: getMockHotels(params.location, offset, limit) };
+          }
+
+          // ✅ Handle valid responses with 0 results
+          if (!data?.hotels?.hotels || data.hotels.total === 0) {
             return { data: [] };
           }
 
@@ -176,12 +171,10 @@ export const hotelApi = createApi({
               id: h.code.toString(),
               name: h.name,
               price: Number(h.minRate || 200),
-              rating: 4.5,
+              rating: h.rating || 4.5,
               location: h.destinationName || params.location,
               image: images[index % images.length],
-              description: `Luxury stay at ${h.name} in ${
-                h.destinationName || params.location
-              }`,
+              description: `Luxury stay at ${h.name} in ${h.destinationName || params.location}`,
               amenities: ['WiFi', 'AC', 'Pool', 'Gym'],
             })
           );
@@ -189,7 +182,7 @@ export const hotelApi = createApi({
           return { data: hotels };
         } catch (err) {
           console.error(err);
-          return { data: getMockHotels(params.location) };
+          return { data: getMockHotels(params.location, offset, limit) };
         }
       },
     }),
@@ -197,20 +190,39 @@ export const hotelApi = createApi({
 });
 
 /**
- * Fallback mock data
+ * Fallback mock data with pagination support
  */
-const getMockHotels = (location: string): Hotel[] => [
-  {
-    id: 'm1',
-    name: `Grand ${location} Palace`,
-    price: 320,
-    rating: 4.8,
-    location,
-    image:
-      'https://images.unsplash.com/photo-1566073771259-6a8506099945',
-    description: 'Luxury experience in the heart of the city.',
-    amenities: ['Spa', 'Pool', 'Gym'],
-  },
-];
+const getMockHotels = (location: string, offset: number, limit: number): Hotel[] => {
+  const images = [
+    'https://images.unsplash.com/photo-1566073771259-6a8506099945',
+    'https://images.unsplash.com/photo-1551882547-ff43c63efe81',
+    'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4',
+    'https://images.unsplash.com/photo-1571896349842-33c89424de2d',
+  ];
+
+  const baseHotels = [
+    { name: 'Palazzo ', suffix: 'Resort' },
+    { name: 'The ', suffix: 'Obsidian' },
+    { name: 'Azure ', suffix: 'Heights' },
+    { name: 'Sanctuary ', suffix: 'Grand' },
+    { name: 'Elysian ', suffix: 'Suites' },
+    { name: 'Vista ', suffix: 'Point' },
+  ];
+
+  return Array.from({ length: limit }).map((_, i) => {
+    const idx = (offset + i) % baseHotels.length;
+    const hotel = baseHotels[idx];
+    return {
+      id: `m${offset + i}`,
+      name: `${hotel.name}${location || 'Global'} ${hotel.suffix}`,
+      price: 200 + (offset + i) * 15,
+      rating: 4.0 + ((offset + i) % 10) / 10,
+      location: location || 'World',
+      image: images[(offset + i) % images.length],
+      description: 'Hand-picked luxury accommodation.',
+      amenities: ['WiFi', 'Pool', 'Gym'],
+    };
+  });
+};
 
 export const { useSearchHotelsQuery } = hotelApi;

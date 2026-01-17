@@ -27,17 +27,21 @@ const Home: React.FC = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
 
-   
 
-    const {register , handleSubmit ,  formState: { errors },  } = useForm<SearchForm>({
+
+    const { register, handleSubmit, formState: { errors }, } = useForm<SearchForm>({
         resolver: yupResolver(searchSchema),
-        defaultValues : {guests : 1}
+        defaultValues: { guests: 1 }
     })
 
     const onSubmit = (data: SearchForm) => {
-    dispatch(setSearchParams(data));
-    navigate('/search');
-  };
+        dispatch(setSearchParams({
+            ...data,
+            offset: 0,
+            limit: 20
+        }));
+        navigate('/search');
+    };
 
     return (
         <Layout>

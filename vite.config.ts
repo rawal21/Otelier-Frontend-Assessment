@@ -14,6 +14,11 @@ export default defineConfig({
         target: 'https://api.test.hotelbeds.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/hotelbeds-api/, ''),
+      },
+      '/sabre-api': {
+        target: 'https://api.test.sabre.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/sabre-api/, ''),
       }
     }
   }

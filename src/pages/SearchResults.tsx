@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Filter, BarChart3, Trash2 } from 'lucide-react';
 import { type RootState } from '../store';
 import { useSearchHotelsQuery } from '../store/api/hotelApi';
-import { toggleHotelSelection, clearSelectedHotels } from '../store/hotelSlice';
+import { toggleHotelSelection, clearSelectedHotels, setSearchParams } from '../store/hotelSlice';
 import Layout from '../components/Layout';
 import ComparisonModal from '../components/ComparisonModal';
 import ResultsSkeleton from '../components/search/ResultsSkeleton';
@@ -16,7 +16,24 @@ const SearchResults: React.FC = () => {
     const dispatch = useDispatch();
     const { searchParams, selectedHotels } = useSelector((state: RootState) => state.hotels);
     const { role } = useSelector((state: RootState) => state.auth);
-    const { data: hotels, isLoading } = useSearchHotelsQuery(searchParams);
+    const [allHotels, setAllHotels] = useState<any[]>([]);
+    const { data: newHotels, isLoading, isFetching } = useSearchHotelsQuery(searchParams);
+
+    // Accumulate hotels when new data arrives
+    useMemo(() => {
+        if (newHotels) {
+            if (searchParams.offset === 0) {
+                setAllHotels(newHotels);
+            } else {
+                setAllHotels(prev => {
+                    // Avoid duplicates if the query re-runs
+                    const existingIds = new Set(prev.map(h => h.id));
+                    const uniqueNew = newHotels.filter(h => !existingIds.has(h.id));
+                    return [...prev, ...uniqueNew];
+                });
+            }
+        }
+    }, [newHotels, searchParams.offset]);
 
     const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
     const [priceRange, setPriceRange] = useState(500);
@@ -24,16 +41,22 @@ const SearchResults: React.FC = () => {
     const [showMobileFilters, setShowMobileFilters] = useState(false);
 
     const filteredHotels = useMemo(() => {
-        if (!hotels) return [];
-        return hotels.filter(h => {
+        return allHotels.filter(h => {
             const matchesPrice = h.price <= priceRange;
             const matchesAmenities = selectedAmenities.length === 0 ||
                 selectedAmenities.every(amenity =>
-                    h.amenities.some(a => a.toLowerCase().includes(amenity.toLowerCase()))
+                    h.amenities.some((a: string) => a.toLowerCase().includes(amenity.toLowerCase()))
                 );
             return matchesPrice && matchesAmenities;
         });
-    }, [hotels, priceRange, selectedAmenities]);
+    }, [allHotels, priceRange, selectedAmenities]);
+
+    const loadMore = () => {
+        dispatch(setSearchParams({
+            ...searchParams,
+            offset: (searchParams.offset || 0) + (searchParams.limit || 20)
+        }));
+    };
 
     const toggleAmenity = (amenity: string) => {
         setSelectedAmenities(prev =>
@@ -46,7 +69,7 @@ const SearchResults: React.FC = () => {
     return (
         <Layout>
             <div className="flex flex-col lg:flex-row gap-8">
-                {/* Mobile Filter Toggle omitted for brevity, same as before */}
+                {/* Mobile Filter Toggle */}
                 <div className="lg:hidden flex gap-4">
                     <button
                         onClick={() => setShowMobileFilters(!showMobileFilters)}
@@ -172,17 +195,38 @@ const SearchResults: React.FC = () => {
                         )}
                     </div>
 
-                    {isLoading ? (
+                    {isLoading && allHotels.length === 0 ? (
                         <ResultsSkeleton />
                     ) : (
-                        <ResultsGrid
-                            hotels={filteredHotels}
-                            selectedHotels={selectedHotels}
-                            onToggleSelection={(h) => dispatch(toggleHotelSelection(h))}
-                        />
+                        <>
+                            <ResultsGrid
+                                hotels={filteredHotels}
+                                selectedHotels={selectedHotels}
+                                onToggleSelection={(h) => dispatch(toggleHotelSelection(h))}
+                            />
+
+                            {filteredHotels.length > 0 && (
+                                <div className="mt-12 flex justify-center">
+                                    <button
+                                        onClick={loadMore}
+                                        disabled={isFetching}
+                                        className={`px-8 py-4 bg-white/5 border border-white/10 rounded-2xl font-bold hover:bg-white/10 transition-all flex items-center gap-3 ${isFetching ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    >
+                                        {isFetching ? (
+                                            <>
+                                                <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                                                Loading More...
+                                            </>
+                                        ) : (
+                                            'Load More Results'
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+                        </>
                     )}
 
-                    {!isLoading && filteredHotels.length === 0 && <EmptyResults />}
+                    {(!isLoading || allHotels.length > 0) && filteredHotels.length === 0 && <EmptyResults />}
                 </div>
             </div>
 
